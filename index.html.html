@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>현장점검 일정 관리</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Malgun Gothic',sans-serif;background:#f0f4f8;}
+.header{background:#1a3a5c;color:white;padding:14px 24px;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+.header h1{font-size:18px;font-weight:bold;}
+.header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.sync-status{font-size:12px;padding:4px 10px;border-radius:12px;background:rgba(255,255,255,0.15);}
+.sync-status.ok{background:rgba(46,213,115,0.3);}
+.sync-status.err{background:rgba(255,99,72,0.3);}
+.tabs{display:flex;background:#243f5c;padding:0 24px;overflow-x:auto;}
+.tab{padding:12px 20px;color:#aaa;cursor:pointer;font-size:13px;
+  border-bottom:3px solid transparent;white-space:nowrap;}
+.tab.active{color:white;border-bottom:3px solid #4fc3f7;}
+.content{padding:20px;max-width:1300px;margin:0 auto;}
+.view{display:none;}
+.view.active{display:block;}
+.cal-top{display:flex;align-items:center;justify-content:space-between;
+  background:white;padding:14px 20px;border-radius:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+.cal-title{font-size:18px;font-weight:bold;color:#1a3a5c;}
+.cal-btns{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.nav-btn{background:#1a3a5c;color:white;border:none;padding:7px 14px;
+  border-radius:6px;cursor:pointer;font-size:14px;}
+.nav-btn:hover{background:#243f5c;}
+.btn-add{background:#27ae60;color:white;border:none;padding:8px 16px;
+  border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;}
+.btn-add:hover{background:#229954;}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:#555;}
+.legend-dot{width:10px;height:10px;border-radius:2px;}
+.cal-grid{background:white;border-radius:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.08);overflow:hidden;}
+.cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);background:#1a3a5c;}
+.weekday{text-align:center;padding:10px;color:white;font-size:13px;font-weight:bold;}
+.weekday:first-child{color:#ff8a80;}
+.weekday:last-child{color:#80d8ff;}
+.cal-days{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#e0e0e0;}
+.day-cell{background:white;min-height:95px;padding:5px;cursor:pointer;transition:background 0.15s;}
+.day-cell:hover{background:#f5f9ff;}
+.day-cell.other-month{background:#fafafa;}
+.day-cell.today{background:#e8f4fd;}
+.day-num{font-size:12px;font-weight:bold;color:#333;margin-bottom:3px;}
+.other-month .day-num{color:#ccc;}
+.sunday .day-num{color:#e53935;}
+.saturday .day-num{color:#1e88e5;}
+.today-dot{background:#1a3a5c;color:white;width:22px;height:22px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;font-size:11px;}
+.ev-tag{font-size:10px;padding:2px 5px;border-radius:3px;margin-bottom:2px;
+  cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
+.ev-tag:hover{opacity:0.75;}
+.annual-top{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+.year-nav{display:flex;align-items:center;gap:10px;}
+.annual-title{font-size:16px;font-weight:bold;color:#1a3a5c;}
+.annual-wrap{overflow-x:auto;}
+.annual-table{width:100%;border-collapse:collapse;min-width:900px;
+  box-shadow:0 2px 12px rgba(0,0,0,0.1);border-radius:10px;overflow:hidden;}
+.annual-table .title-row td{background:#1a3a5c;color:white;text-align:center;
+  font-size:15px;font-weight:bold;padding:12px;letter-spacing:1px;}
+.annual-table .month-row td{background:#2c5282;color:white;text-align:center;
+  font-weight:bold;font-size:13px;padding:8px 4px;border:1px solid #3a6298;}
+.annual-table .date-row td{background:#1a3a5c;color:#ffd700;text-align:center;
+  font-weight:bold;font-size:14px;padding:6px 4px;border:1px solid #3a6298;}
+.annual-table .date-row td.no-date{color:transparent;}
+.annual-table .data-row td{background:white;text-align:center;vertical-align:top;
+  padding:4px 3px;border:1px solid #e0e0e0;min-height:28px;min-width:70px;}
+.annual-table .data-row:nth-child(even) td{background:#f8fbff;}
+.insp-cell{display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;
+  font-weight:bold;line-height:1.4;cursor:pointer;margin:1px;}
+.insp-cell:hover{opacity:0.8;}
+.t-사전점검{background:#fff3cd;color:#856404;border:1px solid #ffc107;}
+.t-정기점검{background:#d1ecf1;color:#0c5460;border:1px solid #17a2b8;}
+.t-특별점검{background:#f8d7da;color:#721c24;border:1px solid #dc3545;}
+.t-준공검사{background:#d4edda;color:#155724;border:1px solid #28a745;}
+.site-filter{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
+.site-btn{padding:8px 16px;border:2px solid #ddd;border-radius:20px;cursor:pointer;
+  font-size:13px;font-weight:bold;background:white;transition:all 0.2s;}
+.site-btn.sel{color:white;border-color:transparent;}
+.tbl-wrap{background:white;border-radius:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.08);overflow:hidden;}
+.tbl-header{display:flex;justify-content:space-between;align-items:center;
+  padding:14px 18px;border-bottom:1px solid #eee;flex-wrap:wrap;gap:8px;}
+.tbl-header h3{font-size:15px;color:#1a3a5c;font-weight:bold;}
+table{width:100%;border-collapse:collapse;}
+th{background:#1a3a5c;color:white;padding:10px 12px;text-align:center;font-size:12px;}
+td{padding:10px 12px;text-align:center;border-bottom:1px solid #f0f0f0;font-size:12px;}
+tr:hover td{background:#f5f9ff;}
+.type-badge{padding:3px 8px;border-radius:10px;font-size:11px;font-weight:bold;}
+.site-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+  gap:14px;padding:18px;}
+.site-card{border-radius:10px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,0.1);}
+.site-card-name{font-size:16px;font-weight:bold;color:white;margin-bottom:6px;}
+.site-card-count{font-size:12px;color:rgba(255,255,255,0.85);margin-bottom:12px;}
+.site-card-btns{display:flex;gap:6px;}
+.btn-ce{background:rgba(255,255,255,0.25);color:white;border:1px solid rgba(255,255,255,0.5);
+  padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;}
+.btn-cd{background:rgba(231,76,60,0.7);color:white;border:none;
+  padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;}
+.overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center;}
+.overlay.show{display:flex;}
+.modal{background:white;border-radius:12px;width:500px;max-width:95vw;
+  max-height:90vh;overflow-y:auto;box-shadow:0 10px 30px rgba(0,0,0,0.3);}
+.modal-hd{background:#1a3a5c;color:white;padding:14px 18px;
+  display:flex;justify-content:space-between;align-items:center;
+  position:sticky;top:0;z-index:1;}
+.modal-hd h3{font-size:15px;}
+.modal-x{background:none;border:none;color:white;font-size:18px;cursor:pointer;}
+.modal-body{padding:20px;}
+.fg{margin-bottom:14px;}
+.fg label{display:block;font-size:12px;font-weight:bold;color:#555;margin-bottom:5px;}
+.fg input,.fg select,.fg textarea{width:100%;padding:9px 11px;border:1px solid #ddd;
+  border-radius:6px;font-size:13px;font-family:'Malgun Gothic',sans-serif;}
+.fg textarea{height:70px;resize:vertical;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:#4fc3f7;}
+.modal-ft{padding:14px 20px;border-top:1px solid #eee;
+  display:flex;justify-content:flex-end;gap:8px;
+  position:sticky;bottom:0;background:white;}
+.btn-save{background:#27ae60;color:white;border:none;padding:9px 20px;
+  border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;}
+.btn-cancel{background:#95a5a6;color:white;border:none;padding:9px 20px;
+  border-radius:6px;cursor:pointer;font-size:13px;}
+.cp-wrap{display:flex;gap:8px;flex-wrap:wrap;}
+.cp-dot{width:28px;height:28px;border-radius:50%;cursor:pointer;
+  border:3px solid transparent;transition:all 0.15s;}
+.cp-dot.sel{border-color:#333;transform:scale(1.2);}
+.detail-row{display:flex;padding:9px 0;border-bottom:1px solid #f0f0f0;}
+.dl{width:90px;font-weight:bold;color:#555;font-size:12px;flex-shrink:0;}
+.dv{font-size:12px;color:#333;flex:1;}
+.btn-excel{background:#217346;color:white;border:none;padding:8px 16px;
+  border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;}
+.btn-excel:hover{background:#1a5c38;}
+.btn-upload{background:#8e44ad;color:white;border:none;padding:8px 16px;
+  border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;}
+.btn-upload:hover{background:#7d3c98;}
+.info-box{background:#e8f4fd;border-left:4px solid #4fc3f7;padding:10px 14px;
+  border-radius:6px;font-size:12px;color:#1a5276;margin-bottom:16px;}
+.upload-area{border:2px dashed #4fc3f7;border-radius:10px;padding:30px;
+  text-align:center;background:#f8fbff;margin-bottom:16px;cursor:pointer;}
+.upload-area:hover{background:#e8f4fd;}
+.upload-preview{background:#f8f9fa;border-radius:8px;padding:14px;
+  margin-top:12px;max-height:200px;overflow-y:auto;}
+.preview-row{display:flex;gap:8px;font-size:12px;padding:4px 0;
+  border-bottom:1px solid #eee;flex-wrap:wrap;}
+.preview-badge{padding:2px 6px;border-radius:3px;font-size:11px;}
+.toast{position:fixed;bottom:24px;right:24px;background:#1a3a5c;color:white;
+  padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;
+  transition:opacity 0.3s;z-index:9999;}
+.toast.show{opacity:1;}
+@media(max-width:768px){
+  .day-cell{min-height:55px;}
+  .ev-tag{font-size:9px;}
+  .content{padding:10px;}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🏗️ 현장점검 일정 관리</h1>
+  <div class="header-right">
+    <span class="sync-status" id="sync-status">⏳ 연결 중...</span>
+    <button class="btn-upload" onclick="openUploadModal()">📤 엑셀 업로드</button>
+    <button class="btn-excel" onclick="exportExcel()">📥 엑셀 추출</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('calendar')">📅 월별 캘린더</div>
+  <div class="tab" onclick="switchTab('annual')">📊 연간 일정표</div>
+  <div class="tab" onclick="switchTab('site')">🏗️ 현장별 일정</div>
+  <div class="tab" onclick="switchTab('manage')">⚙️ 현장 관리</div>
+</div>
+
+<div class="content">
+  <div id="view-calendar" class="view active">
+    <div class="cal-top">
+      <button class="nav-btn" onclick="changeMonth(-1)">◀</button>
+      <div class="cal-title" id="cal-title"></div>
+      <div class="cal-btns">
+        <button class="nav-btn" onclick="goToday()">오늘</button>
+        <button class="btn-add" onclick="openAddModal()">+ 일정 추가</button>
+        <button class="nav-btn" onclick="changeMonth(1)">▶</button>
+      </div>
+    </div>
+    <div class="legend" id="cal-legend"></div>
+    <div class="cal-grid">
+      <div class="cal-weekdays">
+        <div class="weekday">일</div><div class="weekday">월</div>
+        <div class="weekday">화</div><div class="weekday">수</div>
+        <div class="weekday">목</div><div class="weekday">금</div>
+        <div class="weekday">토</div>
+      </div>
+      <div class="cal-days" id="cal-days"></div>
+    </div>
+  </div>
+
+  <div id="view-annual" class="view">
+    <div class="annual-top">
+      <div class="year-nav">
+        <button class="nav-btn" onclick="changeYear(-1)">◀</button>
+        <div class="annual-title" id="annual-title"></div>
+        <button class="nav-btn" onclick="changeYear(1)">▶</button>
+      </div>
+      <button class="btn-add" onclick="openAddModal()">+ 일정 추가</button>
+    </div>
+    <div class="annual-wrap">
+      <table class="annual-table" id="annual-table"></table>
+    </div>
+  </div>
+
+  <div id="view-site" class="view">
+    <div class="site-filter" id="site-filter-btns"></div>
+    <div class="tbl-wrap">
+      <div class="tbl-header">
+        <h3 id="site-tbl-title">현장 점검 일정</h3>
+        <button class="btn-add" onclick="openAddModal()">+ 일정 추가</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>날짜</th><th>현장명</th><th>PJ Code</th>
+            <th>점검유형</th><th>담당자</th><th>비고</th><th>관리</th>
+          </tr>
+        </thead>
+        <tbody id="site-tbl-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="view-manage" class="view">
+    <div class="info-box">
+      💡 현장을 추가·수정·삭제할 수 있습니다. 삭제 시 해당 현장 일정도 함께 삭제됩니다.
+    </div>
+    <div class="tbl-wrap">
+      <div class="tbl-header">
+        <h3>⚙️ 현장 목록</h3>
+        <button class="btn-add" onclick="openSiteModal()">+ 현장 추가</button>
+      </div>
+      <div class="site-card-grid" id="site-card-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 일정 추가/수정 모달 -->
+<div class="overlay" id="form-modal">
+  <div class="modal">
+    <div class="modal-hd">
+      <h3 id="modal-title">일정 추가</h3>
+      <button class="modal-x" onclick="closeModal('form-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-id">
+      <div class="fg"><label>📅 날짜 *</label><input type="date" id="inp-date"></div>
+      <div class="fg"><label>🏗️ 현장명 *</label><select id="inp-site"></select></div>
+      <div class="fg"><label>🔖 PJ Code</label>
+        <input type="text" id="inp-pjcode" placeholder="예) PJ-2025-001"></div>
+      <div class="fg"><label>🔍 점검유형 *</label>
+        <select id="inp-type">
+          <option value="">유형 선택</option>
+          <option>사전점검</option><option>정기점검</option>
+          <option>특별점검</option><option>준공검사</option>
+        </select>
+      </div>
+      <div class="fg"><label>👤 담당자</label>
+        <input type="text" id="inp-manager" placeholder="담당자 이름"></div>
+      <div class="fg"><label>📝 비고/메모</label>
+        <textarea id="inp-memo" placeholder="비고 또는 메모"></textarea></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn-cancel" onclick="closeModal('form-modal')">취소</button>
+      <button class="btn-save" onclick="saveEvent()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 현장 추가/수정 모달 -->
+<div class="overlay" id="site-modal">
+  <div class="modal">
+    <div class="modal-hd">
+      <h3 id="site-modal-title">현장 추가</h3>
+      <button class="modal-x" onclick="closeModal('site-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="site-edit-id">
+      <div class="fg"><label>🏗️ 현장 이름 *</label>
+        <input type="text" id="inp-site-name" placeholder="예) 강남현장, 1공구"></div>
+      <div class="fg"><label>🎨 색상 선택 *</label>
+        <div class="cp-wrap" id="color-picker"></div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn-cancel" onclick="closeModal('site-modal')">취소</button>
+      <button class="btn-save" onclick="saveSite()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 엑셀 업로드 모달 -->
+<div class="overlay" id="upload-modal">
+  <div class="modal">
+    <div class="modal-hd">
+      <h3>📤 엑셀 데이터 업로드</h3>
+      <button class="modal-x" onclick="closeModal('upload-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="info-box">
+        📋 <b>엑셀 양식 안내</b><br><br>
+        A열: 현장명 | B열: 담당자 | C열: 날짜 | D열: 점검유형 | E열: PJ Code<br><br>
+        날짜형식: 2025-01-01 또는 01월 01일<br>
+        점검유형: 사전점검 / 정기점검 / 특별점검 / 준공검사
+      </div>
+      <div class="upload-area" onclick="document.getElementById('file-input').click()">
+        <div style="font-size:36px;margin-bottom:8px;">📁</div>
+        <div style="font-size:14px;color:#555;margin-bottom:4px;">클릭하여 파일 선택</div>
+        <div style="font-size:12px;color:#aaa;">.xlsx / .xls / .csv 파일 지원</div>
+        <input type="file" id="file-input" accept=".xlsx,.xls,.csv"
+          style="display:none" onchange="handleFile(this)">
+      </div>
+      <div id="upload-preview" style="display:none">
+        <div style="font-size:13px;font-weight:bold;color:#1a3a5c;margin-bottom:8px;">
+          📋 미리보기 (<span id="preview-count">0</span>건)
+        </div>
+        <div class="upload-preview" id="preview-list"></div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn-cancel" onclick="closeModal('upload-modal')">취소</button>
+      <button class="btn-save" id="btn-upload-confirm"
+        onclick="uploadData()" style="display:none">✅ Firebase에 등록하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 상세 모달 -->
+<div class="overlay" id="detail-modal">
+  <div class="modal">
+    <div class="modal-hd">
+      <h3>📋 점검 상세 정보</h3>
+      <button class="modal-x" onclick="closeModal('detail-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="detail-body"></div>
+    <div class="modal-ft">
+      <button class="btn-cancel" onclick="closeModal('detail-modal')">닫기</button>
+      <button style="background:#3498db;color:white;border:none;padding:9px 18px;
+        border-radius:6px;cursor:pointer;font-size:13px;" onclick="editFromDetail()">수정</button>
+      <button style="background:#e74c3c;color:white;border:none;padding:9px 18px;
+        border-radius:6px;cursor:pointer;font-size:13px;" onclick="deleteFromDetail()">삭제</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDK29sJkXXNKhlGS6Ps8Ap3h9tIbqXjaTI",
+  authDomain: "schedule-9b001.firebaseapp.com",
+  projectId: "schedule-9b001",
+  storageBucket: "schedule-9b001.firebasestorage.app",
+  messagingSenderId: "66557000970",
+  appId: "1:66557000970:web:3ea4f15feff20ffeec4ef3"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+const PALETTE = [
+  '#1a3a5c','#2980b9','#27ae60','#e74c3c','#f39c12',
+  '#9b59b6','#16a085','#e67e22','#2c3e50','#c0392b',
+  '#8e44ad','#1abc9c','#d35400','#f06292','#00897b'
+];
+
+function hexLight(hex){
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},0.13)`;
+}
+function hexDark(hex){
+  const r=Math.floor(parseInt(hex.slice(1,3),16)*0.55),
+        g=Math.floor(parseInt(hex.slice(3,5),16)*0.55),
+        b=Math.floor(parseInt(hex.slice(5,7),16)*0.55);
+  return `rgb(${r},${g},${b})`;
+}
+
+let sites=[],events=[],curYear=new Date().getFullYear(),
+    curMonth=new Date().getMonth(),annualYear=new Date().getFullYear(),
+    curSiteId=null,curDetailId=null,selColor=PALETTE[0],
+    curTab='calendar',uploadRows=[];
+
+const SS=id=>document.getElementById(id);
+function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
+function getSite(id){return sites.find(s=>s.id===id)||null;}
+function typeBg(t){return {사전점검:'#fff3cd',정기점검:'#d1ecf1',특별점검:'#f8d7da',준공검사:'#d4edda'}[t]||'#eee';}
+function typeColor(t){return {사전점검:'#856404',정기점검:'#0c5460',특별점검:'#721c24',준공검사:'#155724'}[t]||'#333';}
+function fmtDate(ds){
+  if(!ds) return '-';
+  const d=new Date(ds+'T00:00:00');
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+}
+function toast(msg){
+  const t=SS('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+function initFirestore(){
+  onSnapshot(collection(db,'sites'),snap=>{
+    sites=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(!curSiteId&&sites.length) curSiteId=sites[0].id;
+    refresh();
+    SS('sync-status').textContent='🟢 실시간 연결됨';
+    SS('sync-status').className='sync-status ok';
+  },()=>{
+    SS('sync-status').textContent='🔴 연결 오류';
+    SS('sync-status').className='sync-status err';
+  });
+  onSnapshot(collection(db,'events'),snap=>{
+    events=snap.docs.map(d=>({id:d.id,...d.data()}));
+    refresh();
+  });
+}
+
+function refresh(){
+  if(curTab==='calendar') renderCalendar();
+  if(curTab==='annual')   renderAnnual();
+  if(curTab==='site'){renderSiteFilter();renderSiteTable();}
+  if(curTab==='manage')   renderSiteCards();
+}
+
+window.switchTab=function(tab){
+  curTab=tab;
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    t.classList.toggle('active',
+      (i===0&&tab==='calendar')||(i===1&&tab==='annual')||
+      (i===2&&tab==='site')||(i===3&&tab==='manage'));
+  });
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  SS('view-'+tab).classList.add('active');
+  refresh();
+};
+
+window.changeMonth=d=>{
+  curMonth+=d;
+  if(curMonth>11){curMonth=0;curYear++;}
+  if(curMonth<0){curMonth=11;curYear--;}
+  renderCalendar();
+};
+window.goToday=()=>{
+  curYear=new Date().getFullYear();
+  curMonth=new Date().getMonth();
+  renderCalendar();
+};
+
+function renderCalendar(){
+  SS('cal-title').textContent=`${curYear}년 ${curMonth+1}월`;
+  SS('cal-legend').innerHTML=sites.map(s=>
+    `<div class="legend-item">
+       <div class="legend-dot" style="background:${s.color}"></div>${s.name}
+     </div>`).join('');
+  const first=new Date(curYear,curMonth,1).getDay();
+  const last=new Date(curYear,curMonth+1,0).getDate();
+  const prevLast=new Date(curYear,curMonth,0).getDate();
+  const today=new Date();
+  const total=Math.ceil((first+last)/7)*7;
+  let html='',dc=1,nc=1;
+  for(let i=0;i<total;i++){
+    const col=i%7;let dn,ds,other=false;
+    if(i<first){
+      dn=prevLast-first+i+1;
+      const m=curMonth===0?12:curMonth,y=curMonth===0?curYear-1:curYear;
+      ds=`${y}-${String(m).padStart(2,'0')}-${String(dn).padStart(2,'0')}`;other=true;
+    } else if(dc<=last){
+      dn=dc++;ds=`${curYear}-${String(curMonth+1).padStart(2,'0')}-${String(dn).padStart(2,'0')}`;
+    } else {
+      dn=nc++;const m=curMonth===11?1:curMonth+2,y=curMonth===11?curYear+1:curYear;
+      ds=`${y}-${String(m).padStart(2,'0')}-${String(dn).padStart(2,'0')}`;other=true;
+    }
+    const isTod=!other&&today.getFullYear()===curYear&&today.getMonth()===curMonth&&today.getDate()===dn;
+    const dayEvs=events.filter(e=>e.date===ds);
+    const evHtml=dayEvs.map(e=>{
+      const s=getSite(e.siteId);if(!s) return '';
+      return `<span class="ev-tag"
+        style="background:${hexLight(s.color)};color:${hexDark(s.color)};border-left:3px solid ${s.color}"
+        onclick="showDetail('${e.id}',event)">${s.name} ${e.type}</span>`;
+    }).join('');
+    const cls=['day-cell',other?'other-month':'',isTod?'today':'',
+      col===0?'sunday':'',col===6?'saturday':''].filter(Boolean).join(' ');
+    html+=`<div class="${cls}" onclick="openAddModalDate('${ds}')">
+      <div class="day-num">${isTod?`<span class="today-dot">${dn}</span>`:dn}</div>
+      ${evHtml}</div>`;
+  }
+  SS('cal-days').innerHTML=html;
+}
+
+window.changeYear=d=>{annualYear+=d;renderAnnual();};
+
+function renderAnnual(){
+  SS('annual-title').textContent=`${annualYear}년 현장점검 일정`;
+  const months=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const firstDates=months.map((_,mi)=>{
+    const ds=events
+      .filter(e=>e.date&&e.date.startsWith(`${annualYear}-${String(mi+1).padStart(2,'0')}`))
+      .map(e=>parseInt(e.date.split('-')[2])).sort((a,b)=>a-b);
+    return ds.length?ds[0]:null;
+  });
+  let html=`
+    <tr class="title-row"><td colspan="13">${annualYear} 현장점검 일정</td></tr>
+    <tr class="month-row">
+      <td style="background:#1a3a5c;min-width:90px;">현장명</td>
+      ${months.map(m=>`<td>${m}</td>`).join('')}
+    </tr>
+    <tr class="date-row">
+      <td class="no-date" style="background:#1a3a5c;">-</td>
+      ${firstDates.map(d=>d?`<td>${d}</td>`:`<td class="no-date">-</td>`).join('')}
+    </tr>`;
+  sites.forEach(site=>{
+    const rows=buildSiteRows(site,annualYear);
+    rows.forEach((row,ri)=>{
+      html+=`<tr class="data-row">`;
+      if(ri===0){
+        html+=`<td rowspan="${rows.length}"
+          style="background:${hexLight(site.color)};font-weight:bold;
+          color:${hexDark(site.color)};border-left:4px solid ${site.color};
+          font-size:12px;min-width:90px;">${site.name}</td>`;
+      }
+      months.forEach((_,mi)=>{
+        const cell=row[mi];
+        if(cell){
+          html+=`<td>${cell.map(e=>`
+            <span class="insp-cell t-${e.type}" onclick="showDetail('${e.id}',event)">
+              ${e.type.replace('점검','').replace('검사','검')}<br>
+              <span style="font-size:10px;font-weight:normal;">
+                ${e.date.slice(5).replace('-','/')}
+              </span>
+            </span>`).join('')}</td>`;
+        } else {html+=`<td></td>`;}
+      });
+      html+=`</tr>`;
+    });
+  });
+  if(!sites.length){
+    html+=`<tr><td colspan="13"
+      style="text-align:center;padding:30px;color:#aaa;">등록된 현장이 없습니다</td></tr>`;
+  }
+  SS('annual-table').innerHTML=html;
+}
+
+function buildSiteRows(site,year){
+  const me=Array.from({length:12},(_,mi)=>
+    events.filter(e=>
+      e.siteId===site.id&&e.date&&
+      e.date.startsWith(`${year}-${String(mi+1).padStart(2,'0')}`)
+    )
+  );
+  const maxRows=Math.max(1,...me.map(m=>m.length));
+  return Array.from({length:maxRows},(_,ri)=>me.map(m=>m[ri]?[m[ri]]:null));
+}
+
+function renderSiteFilter(){
+  const wrap=SS('site-filter-btns');
+  if(!sites.length){
+    wrap.innerHTML=`<div style="color:#aaa;font-size:13px;">현장 관리 탭에서 현장을 추가해주세요.</div>`;
+    return;
+  }
+  wrap.innerHTML=sites.map(s=>
+    `<button class="site-btn ${s.id===curSiteId?'sel':''}"
+      style="${s.id===curSiteId?`background:${s.color};border-color:${s.color};`:''}"
+      onclick="filterSite('${s.id}')">🏗️ ${s.name}</button>`).join('');
+}
+
+window.filterSite=id=>{curSiteId=id;renderSiteFilter();renderSiteTable();};
+
+function renderSiteTable(){
+  const site=getSite(curSiteId);
+  SS('site-tbl-title').textContent=site?`${site.name} 점검 일정`:'현장을 선택해주세요';
+  const rows=events.filter(e=>e.siteId===curSiteId).sort((a,b)=>a.date.localeCompare(b.date));
+  const tbody=SS('site-tbl-body');
+  if(!rows.length){
+    tbody.innerHTML=`<tr><td colspan="7"
+      style="text-align:center;padding:30px;color:#aaa;">등록된 일정이 없습니다</td></tr>`;
+    return;
+  }
+  tbody.innerHTML=rows.map(e=>{
+    const s=getSite(e.siteId);
+    return `<tr>
+      <td>${fmtDate(e.date)}</td>
+      <td><span style="background:${hexLight(s.color)};color:${hexDark(s.color)};
+        border-left:3px solid ${s.color};padding:2px 7px;border-radius:3px;font-size:11px;">
+        ${s.name}</span></td>
+      <td>${e.pjcode||'-'}</td>
+      <td><span class="type-badge"
+        style="background:${typeBg(e.type)};color:${typeColor(e.type)}">
+        ${e.type}</span></td>
+      <td>${e.manager||'-'}</td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+        ${e.memo||'-'}</td>
+      <td>
+        <button style="background:#3498db;color:white;border:none;padding:4px 9px;
+          border-radius:4px;cursor:pointer;font-size:11px;margin-right:3px;"
+          onclick="openEditModal('${e.id}')">수정</button>
+        <button style="background:#e74c3c;color:white;border:none;padding:4px 9px;
+          border-radius:4px;cursor:pointer;font-size:11px;"
+          onclick="delEvent('${e.id}')">삭제</button>
+      </td></tr>`;
+  }).join('');
+}
+
+function renderSiteCards(){
+  const grid=SS('site-card-grid');
+  if(!sites.length){
+    grid.innerHTML=`<div style="padding:30px;color:#aaa;text-align:center;">현장을 추가해주세요</div>`;
+    return;
+  }
+  grid.innerHTML=sites.map(s=>{
+    const cnt=events.filter(e=>e.siteId===s.id).length;
+    return `<div class="site-card" style="background:${s.color}">
+      <div class="site-card-name">🏗️ ${s.name}</div>
+      <div class="site-card-count">점검 일정 ${cnt}건</div>
+      <div class="site-card-btns">
+        <button class="btn-ce" onclick="openSiteEdit('${s.id}')">✏️ 수정</button>
+        <button class="btn-cd" onclick="delSite('${s.id}')">🗑️ 삭제</button>
+      </div></div>`;
+  }).join('');
+}
+
+window.openSiteModal=function(){
+  SS('site-modal-title').textContent='현장 추가';
+  SS('site-edit-id').value='';
+  SS('inp-site-name').value='';
+  selColor=PALETTE[0];renderCP();
+  SS('site-modal').classList.add('show');
+};
+window.openSiteEdit=function(id){
+  const s=getSite(id);if(!s) return;
+  SS('site-modal-title').textContent='현장 수정';
+  SS('site-edit-id').value=s.id;
+  SS('inp-site-name').value=s.name;
+  selColor=s.color;renderCP();
+  SS('site-modal').classList.add('show');
+};
+function renderCP(){
+  SS('color-picker').innerHTML=PALETTE.map(c=>
+    `<div class="cp-dot ${c===selColor?'sel':''}"
+      style="background:${c}" onclick="pickColor('${c}')"></div>`).join('');
+}
+window.pickColor=c=>{selColor=c;renderCP();};
+window.saveSite=async function(){
+  const name=SS('inp-site-name').value.trim();
+  if(!name){alert('현장 이름을 입력해주세요');return;}
+  const editId=SS('site-edit-id').value,id=editId||genId();
+  await setDoc(doc(db,'sites',id),{name,color:selColor});
+  closeModal('site-modal');
+  toast(editId?'현장이 수정되었습니다 ✅':'현장이 추가되었습니다 ✅');
+};
+window.delSite=async function(id){
+  const s=getSite(id);
+  const cnt=events.filter(e=>e.siteId===id).length;
+  if(!confirm(`[${s?.name}] 현장과 관련 일정 ${cnt}건을 삭제할까요?`)) return;
+  for(const e of events.filter(e=>e.siteId===id))
+    await deleteDoc(doc(db,'events',e.id));
+  await deleteDoc(doc(db,'sites',id));
+  if(curSiteId===id) curSiteId=sites.find(s=>s.id!==id)?.id||null;
+  toast('현장이 삭제되었습니다 🗑️');
+};
+
+window.openAddModal=function(){
+  SS('modal-title').textContent='일정 추가';
+  SS('edit-id').value='';
+  SS('inp-date').value='';
+  SS('inp-pjcode').value='';
+  SS('inp-type').value='';
+  SS('inp-manager').value='';
+  SS('inp-memo').value='';
+  fillSiteSelect('');
+  SS('form-modal').classList.add('show');
+};
+window.openAddModalDate=function(ds){openAddModal();SS('inp-date').value=ds;};
+window.openEditModal=function(id){
+  const e=events.find(v=>v.id===id);if(!e) return;
+  SS('modal-title').textContent='일정 수정';
+  SS('edit-id').value=e.id;
+  SS('inp-date').value=e.date;
+  SS('inp-pjcode').value=e.pjcode||'';
+  SS('inp-type').value=e.type;
+  SS('inp-manager').value=e.manager||'';
+  SS('inp-memo').value=e.memo||'';
+  fillSiteSelect(e.siteId);
+  SS('form-modal').classList.add('show');
+  closeModal('detail-modal');
+};
+function fillSiteSelect(selId){
+  SS('inp-site').innerHTML=`<option value="">현장 선택</option>`+
+    sites.map(s=>`<option value="${s.id}" ${s.id===selId?'selected':''}>${s.name}</option>`).join('');
+}
+window.saveEvent=async function(){
+  const date=SS('inp-date').value,siteId=SS('inp-site').value,type=SS('inp-type').value;
+  if(!date||!siteId||!type){alert('날짜, 현장명, 점검유형은 필수입니다!');return;}
+  const editId=SS('edit-id').value,id=editId||genId();
+  await setDoc(doc(db,'events',id),{
+    date,siteId,type,
+    pjcode:SS('inp-pjcode').value.trim(),
+    manager:SS('inp-manager').value.trim(),
+    memo:SS('inp-memo').value.trim()
+  });
+  closeModal('form-modal');
+  toast(editId?'일정이 수정되었습니다 ✅':'일정이 추가되었습니다 ✅');
+};
+window.delEvent=async function(id){
+  if(!confirm('이 일정을 삭제할까요?')) return;
+  await deleteDoc(doc(db,'events',id));
+  toast('삭제되었습니다 🗑️');
+};
+
+window.showDetail=function(id,e){
+  e.stopPropagation();curDetailId=id;
+  const ev=events.find(v=>v.id===id);if(!ev) return;
+  const s=getSite(ev.siteId);
+  SS('detail-body').innerHTML=`
+    <div class="detail-row"><div class="dl">📅 날짜</div>
+      <div class="dv">${fmtDate(ev.date)}</div></div>
+    <div class="detail-row"><div class="dl">🏗️ 현장</div>
+      <div class="dv">${s?.name||'-'}</div></div>
+    <div class="detail-row"><div class="dl">🔖 PJ Code</div>
+      <div class="dv">${ev.pjcode||'-'}</div></div>
+    <div class="detail-row"><div class="dl">🔍 유형</div>
+      <div class="dv"><span class="type-badge"
+        style="background:${typeBg(ev.type)};color:${typeColor(ev.type)}">
+        ${ev.type}</span></div></div>
+    <div class="detail-row"><div class="dl">👤 담당자</div>
+      <div class="dv">${ev.manager||'-'}</div></div>
+    <div class="detail-row" style="border:none"><div class="dl">📝 비고</div>
+      <div class="dv">${ev.memo||'-'}</div></div>`;
+  SS('detail-modal').classList.add('show');
+};
+window.editFromDetail=()=>openEditModal(curDetailId);
+window.deleteFromDetail=()=>{delEvent(curDetailId);closeModal('detail-modal');};
+
+window.openUploadModal=function(){
+  SS('upload-preview').style.display='none';
+  SS('btn-upload-confirm').style.display='none';
+  SS('file-input').value='';
+  uploadRows=[];
+  SS('upload-modal').classList.add('show');
+};
+window.handleFile=function(input){
+  const file=input.files[0];if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const data=new Uint8Array(e.target.result);
+    const wb=XLSX.read(data,{type:'array',cellDates:true});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    uploadRows=[];
+    const startRow=isNaN(new Date(rows[0]?.[2]).getTime())?1:0;
+    for(let i=startRow;i<rows.length;i++){
+      const r=rows[i];
+      if(!r[0]&&!r[2]) continue;
+      let dateStr='';
+      if(r[2] instanceof Date){
+        dateStr=`${r[2].getFullYear()}-${String(r[2].getMonth()+1).padStart(2,'0')}-${String(r[2].getDate()).padStart(2,'0')}`;
+      } else {
+        const ds=String(r[2]).trim();
+        if(ds.includes('월')&&ds.includes('일')){
+          const m=ds.match(/(\d+)월\s*(\d+)일/);
+          if(m) dateStr=`${new Date().getFullYear()}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+        } else if(ds.includes('-')){dateStr=ds;}
+      }
+      uploadRows.push({
+        siteName:String(r[0]).trim(),
+        manager:String(r[1]).trim(),
+        date:dateStr,
+        type:String(r[3]).trim()||'정기점검',
+        pjcode:String(r[4]).trim()
+      });
+    }
+    SS('preview-count').textContent=uploadRows.length;
+    SS('preview-list').innerHTML=uploadRows.map(r=>
+      `<div class="preview-row">
+        <span class="preview-badge" style="background:#e8f4fd;color:#1a5276">${r.siteName}</span>
+        <span>${r.date}</span>
+        <span class="preview-badge" style="background:${typeBg(r.type)};color:${typeColor(r.type)}">${r.type}</span>
+        <span>👤 ${r.manager||'-'}</span>
+        <span style="color:#888">${r.pjcode||''}</span>
+      </div>`).join('');
+    SS('upload-preview').style.display='block';
+    SS('btn-upload-confirm').style.display=uploadRows.length?'block':'none';
+  };
+  reader.readAsArrayBuffer(file);
+};
+window.uploadData=async function(){
+  if(!uploadRows.length) return;
+  SS('btn-upload-confirm').textContent='⏳ 등록 중...';
+  SS('btn-upload-confirm').disabled=true;
+  let addedSites=0,addedEvents=0;
+  for(const row of uploadRows){
+    let site=sites.find(s=>s.name===row.siteName);
+    if(!site){
+      const newId=genId();
+      const color=PALETTE[sites.length%PALETTE.length];
+      await setDoc(doc(db,'sites',newId),{name:row.siteName,color});
+      site={id:newId,name:row.siteName,color};
+      sites.push(site);
+      addedSites++;
+    }
+    const evId=genId();
+    await setDoc(doc(db,'events',evId),{
+      date:row.date,siteId:site.id,type:row.type,
+      manager:row.manager,pjcode:row.pjcode,memo:''
+    });
+    addedEvents++;
+  }
+  closeModal('upload-modal');
+  SS('btn-upload-confirm').textContent='✅ Firebase에 등록하기';
+  SS('btn-upload-confirm').disabled=false;
+  toast(`✅ 현장 ${addedSites}개, 일정 ${addedEvents}건 등록 완료!`);
+};
+
+window.exportExcel=function(){
+  let csv='\uFEFF날짜,현장명,PJ Code,점검유형,담당자,비고\n';
+  [...events].sort((a,b)=>a.date.localeCompare(b.date)).forEach(e=>{
+    const s=getSite(e.siteId);
+    csv+=`${e.date},${s?.name||''},${e.pjcode||''},${e.type},${e.manager||''},"${(e.memo||'').replace(/"/g,'""')}"\n`;
+  });
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`현장점검_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();URL.revokeObjectURL(url);
+  toast('엑셀 파일로 추출되었습니다 📥');
+};
+
+window.closeModal=id=>SS(id).classList.remove('show');
+
+initFirestore();
+</script>
+</body>
+</html>
